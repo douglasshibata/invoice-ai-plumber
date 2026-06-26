@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlumbInvoice AI - Professional Invoices in Seconds</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans">
+    <!-- Hero Section -->
+    <header class="gradient-bg text-white py-20 px-6 text-center">
+        <h1 class="text-5xl font-bold mb-4">Turn Notes into Professional Invoices</h1>
+        <p class="text-xl mb-8 opacity-90">Designed for Plumbers. Powered by AI. Get paid faster.</p>
+        <a href="#app" class="bg-yellow-400 text-blue-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-300 transition">Try the Beta - It's Free</a>
+    </header>
+
+    <!-- App Section -->
+    <main id="app" class="max-w-4xl mx-auto py-16 px-6">
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Invoice Generator</h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-600 mb-1">Customer Name</label>
+                    <input type="text" id="clientName" placeholder="e.g. John Doe" class="w-full p-3 border rounded-lg">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-slate-600 mb-1">Your Job Notes</label>
+                    <textarea id="rawNotes" rows="4" placeholder="e.g. fixed a leak in the kitchen, replaced 2 meters of copper pipe, spent about 2 hours." class="w-full p-3 border rounded-lg"></textarea>
+                </div>
+
+                <button onclick="generateInvoice()" id="genBtn" class="w-full gradient-bg text-white p-4 rounded-lg font-bold hover:opacity-90 transition">
+                    Generate AI Invoice ✨
+                </button>
+            </div>
+
+            <div id="result" class="mt-8 hidden border-t pt-8">
+                <h3 class="text-xl font-bold mb-4">Invoice Preview</h3>
+                <div id="invoiceTable" class="bg-slate-50 p-4 rounded-lg mb-4"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-2xl font-bold" id="totalDisplay"></span>
+                    <button onclick="downloadPDF()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold">Download PDF</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-12 text-center text-slate-400">
+        <p>&copy; 2026 PlumbInvoice AI. Built for the modern tradesman.</p>
+    </footer>
+
+    <script>
+        let currentInvoiceData = null;
+
+        async function generateInvoice() {
+            const clientName = document.getElementById('clientName').value;
+            const rawNotes = document.getElementById('rawNotes').value;
+            const btn = document.getElementById('genBtn');
+
+            if (!clientName || !rawNotes) {
+                alert("Please fill in both fields.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Processing with AI...";
+
+            try {
+                const response = await fetch('http://localhost:8001/generate-invoice', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        client_name: clientName,
+                        raw_notes: rawNotes,
+                        plumber_name: "Expert Plumbing Services"
+                    })
+                });
+
+                currentInvoiceData = await response.json();
+                renderInvoice(currentInvoiceData);
+                document.getElementById('result').classList.remove('hidden');
+                document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+            } catch (e) {
+                alert("Error connecting to backend. Make sure the FastAPI server is running on port 8001.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Generate AI Invoice ✨";
+            }
+        }
+
+        function renderInvoice(data) {
+            let html = '<table class="w-full text-left"><thead><tr class="border-b font-bold"><th>Desc</th><th>Qty</th><th>Price</th></tr></thead><tbody>';
+            data.items.forEach(item => {
+                html += `<tr class="border-b">
+                    <td class="py-2">${item.description}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${item.unit_price.toFixed(2)}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('invoiceTable').innerHTML = html;
+            document.getElementById('totalDisplay').innerText = `Total: $${data.total.toFixed(2)}`;
+        }
+
+        async function downloadPDF() {
+            if (!currentInvoiceData) return;
+
+            const response = await fetch('http://localhost:8001/export-pdf', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(currentInvoiceData)
+            });
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `invoice_${currentInvoiceData.client.replace(/\s+/g, '_')}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+    </script>
+</body>
+</html>
