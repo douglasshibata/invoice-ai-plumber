@@ -1,0 +1,20 @@
+services:
+  backend:
+    image: python:3.11-slim
+    container_name: invoice-plumber-backend
+    working_dir: /app/backend
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    command: sh -c "pip install --no-cache-dir fastapi uvicorn fpdf2 && uvicorn main:app --host 0.0.0.0 --port 8000"
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    container_name: invoice-plumber-frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    restart: unless-stopped
