@@ -1,58 +1,101 @@
-# PlumbInvoice AI 🪠✨
+# PlumbInvoice AI & Corporate Invoice Processing Platform 🪠📑✨
 
-PlumbInvoice AI is a specialized Micro-SaaS tool designed for plumbers to turn messy, voice-to-text or handwritten notes into professional, itemized PDF invoices in seconds.
+PlumbInvoice AI is an end-to-end intelligent invoice generation and processing platform. Originally a Micro-SaaS tool designed for field contractors, it now features an **Enterprise Backoffice Financeiro PoC Engine** for autonomous accounts payable ingestion, `pdfplumber` layout extraction, deterministic compliance validation, and Human-in-the-Loop (HITL) exception audit.
 
-## 🚀 The Problem
-Plumbers often finish a job and have to spend hours at night typing up invoices or manual notes, leading to delayed payments and a poor professional image.
+---
 
-## 💡 The Solution
-A simple AI wrapper that:
-1. Takes raw job notes (e.g., "fixed leak, 2h, replaced 3 pipes").
-2. Uses LLM intelligence to categorize items and estimate fair pricing.
-3. Generates a professional PDF ready to be emailed to the client.
+## 🚀 The Enterprise Backoffice Problem
+Accounts Payable (AP) and finance departments spend days manually checking scanned or native PDF invoices, calculating line-item sums against grand totals, validating Tax IDs, and typing invoice data into ERPs. This manual overhead causes delayed month-end closes and exposes organizations to costly late-payment penalties and human data-entry errors.
+
+## 💡 The Enterprise PoC Solution
+An automated, deterministic, and audit-ready document processing pipeline:
+1. **Intelligent Ingestion:** Ingests native or scanned PDF invoices via REST API (`/api/v1/invoices/upload`) or drag-and-drop web UI.
+2. **Hybrid Layout Extraction (`pdfplumber`):** Extracts metadata (Issuer, Recipient, NIF/CNPJ, Dates, Currencies) and itemized tables with coordinate layout heuristics and zero external API dependencies.
+3. **Deterministic Financial Validation:**
+   - **Arithmetic Checks:** Validates $\sum(\text{Line Items}) == \text{Subtotal}$ and $\text{Subtotal} + \text{Tax} == \text{Total}$.
+   - **Chronology Rules:** Verifies that due dates are greater than or equal to issue dates.
+   - **Tax ID Checksums:** Implements checksum validation for Portuguese NIF (9 digits) and Brazilian CNPJ (14 digits).
+4. **Straight-Through Processing (STP) vs. HITL Exception Routing:**
+   - Invoices passing all rules with confidence score $\ge 85\%$ are auto-approved directly for ERP ingestion.
+   - Flagged invoices (arithmetic mismatch, invalid dates, unverified Tax IDs) route to a dedicated **Human-in-the-Loop Exception Queue** with 1-click audit approval.
+
+---
 
 ## 🛠️ Quick Start
 
-### Backend (FastAPI)
+### 1. Backend (FastAPI)
 ```bash
-cd backend
-pip install fastapi uvicorn fpdf2
+cd invoice-ai-plumber/backend
+pip install -r requirements.txt
 python main.py
 ```
-Server runs at: `http://localhost:8001`
+Server runs at: `http://localhost:8001` (Interactive Swagger docs: `http://localhost:8001/docs`).
 
-### Frontend
-Simply open `invoice-ai-plumber/frontend/index.html` in your browser.
+### 2. PoC Backoffice Financeiro Dashboard
+Simply open `invoice-ai-plumber/frontend/poc_dashboard.html` in your web browser.
+* Live KPI metrics banner: Total Invoices Processed, STP Automation Rate, Exception Queue count, Total Volume.
+* Quick test buttons: Generate and process synthetic valid invoices, arithmetic mismatch invoices, inverted date invoices, or invalid NIF invoices in 1 click.
+* Interactive Exception Queue with 1-click auditor approval.
 
-## 💰 Monetization Plan (MRR Focus)
-
-*   **Free Tier:** 3 invoices per month.
-*   **Pro Tier ($19/mo):** Unlimited invoices, custom branding/logo, and automatic email delivery.
-*   **Enterprise ($49/mo):** Multi-plumber support, QuickBooks integration, and performance analytics.
-
-## 📈 Marketing Strategy
-*   **Cold Outreach:** Contact local plumbing businesses on Yelp/Google Maps offering a 1-month free trial.
-*   **Niche SEO:** "Invoice automation for plumbers", "Plumbing business software free".
-*   **TikTok/Shorts:** Record "Satisfying" videos of messy notes turning into clean invoices in 1 click.
+### 3. Classic Micro-SaaS Interface
+Open `invoice-ai-plumber/frontend/index.html` for the plumber invoice generation interface.
 
 ---
 
-## 🛠️ Project Deep Dive & Technical Guide
-
-### 🎯 Main Purpose
-Turn messy, raw job notes into formatted, itemized professional PDF invoices for plumbers.
-
-### 🧰 Tecnologias Utilizadas (Tech Stack)
-- **Primary Technologies:** Python 3.12 (FastAPI, fpdf2), HTML5, JavaScript
-- **Deployment Strategy:** Standalone local deployment or standard web server for the static frontend.
-
-### 🚀 Como Implantar e Executar (How to Deploy & Run)
-#### Python FastAPI Backend
-1. Navigate to the `backend` directory.
-2. Install dependencies: `pip install fastapi uvicorn fpdf2`.
-3. Run the backend server: `python main.py` (or `uvicorn main:app --port 8001`).
-
-#### Static Frontend
-1. Open the file `frontend/index.html` in any web browser.
+## 🧪 Automated Testing
+Run the comprehensive test suite verifying extraction, mathematical validation, and API endpoints:
+```bash
+python3 -m pytest invoice-ai-plumber/tests/test_invoice_poc.py -v
+```
 
 ---
+
+## 🏛️ PoC Architecture Diagram
+
+```
+                     ┌──────────────────────────────────────────────┐
+                     │          Canais de Entrada (Ingestão)        │
+                     │  - Upload via Web App / Portal Fornecedor    │
+                     │  - REST API Multipart (POST /upload)         │
+                     └──────────────────────┬───────────────────────┘
+                                            │
+                                            ▼
+                     ┌──────────────────────────────────────────────┐
+                     │       Motor de Extração (pdfplumber)         │
+                     │  - Extração de texto e coordenadas           │
+                     │  - Parsing de tabelas e itens de linha       │
+                     │  - Cálculo de Score de Confiança             │
+                     └──────────────────────┬───────────────────────┘
+                                            │
+                                            ▼
+                     ┌──────────────────────────────────────────────┐
+                     │         Regras de Validação & Compliance     │
+                     │  - Checksum NIF (PT) / CNPJ (BR)             │
+                     │  - Conferência matemática (Itens vs Total)   │
+                     │  - Consistência cronológica de datas         │
+                     └──────────────┬───────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+       [Score >= 85% & Sem Erros]          [Discrepância / Erro]
+                    │                               │
+                    ▼                               ▼
+       ┌────────────────────────┐      ┌────────────────────────┐
+       │   Aprovação Automática │      │   Fila de Exceções     │
+       │   (STP) para o ERP     │      │   Auditoria Humana     │
+       └────────────────────────┘      │   (Dashboard HITL)     │
+                                       └───────────┬────────────┘
+                                                   │
+                                                   ▼
+                                       ┌────────────────────────┐
+                                       │  Validação Manual      │
+                                       │  (1-Click Approval)    │
+                                       └────────────────────────┘
+```
+
+---
+
+## 🧰 Tech Stack
+- **Backend:** Python 3.12, FastAPI, Uvicorn, Pydantic v2, `pdfplumber`, `fpdf2`
+- **Frontend:** Vanilla HTML5, Tailwind CSS, FontAwesome
+- **Test Suite:** Pytest, HTTPX, FastAPI TestClient

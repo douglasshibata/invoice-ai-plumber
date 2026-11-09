@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PoC Backoffice Financeiro | Processamento Inteligente de Faturas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        Invoice AI Plumber <span class="text-xs bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">PoC Backoffice Financeiro</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Extração Híbrida pdfplumber • Validação Determinística • Human-in-the-Loop</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4 text-sm">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs text-slate-300 font-mono" id="api-status">API Online :8001</span>
+                </div>
+                <a href="index.html" class="text-xs text-slate-400 hover:text-slate-200 transition">Micro-SaaS Clássico &rarr;</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        <!-- KPI Metrics Banner -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Faturas Processadas</div>
+                <div class="mt-2 text-3xl font-bold text-white" id="metric-total">0</div>
+                <div class="mt-1 text-xs text-slate-500 flex items-center gap-1">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> Lote em tempo real
+                </div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Taxa de Automação (STP)</div>
+                <div class="mt-2 text-3xl font-bold text-emerald-400" id="metric-stp">0.0%</div>
+                <div class="mt-1 text-xs text-slate-500">Straight-Through Processing</div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Fila de Exceções (HITL)</div>
+                <div class="mt-2 text-3xl font-bold text-amber-400" id="metric-exceptions">0</div>
+                <div class="mt-1 text-xs text-slate-500">Aguardando auditoria</div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Volume Financeiro Validado</div>
+                <div class="mt-2 text-3xl font-bold text-cyan-400" id="metric-volume">€ 0.00</div>
+                <div class="mt-1 text-xs text-slate-500">Total geral auditado</div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Upload & Live Ingestion -->
+            <div class="lg:col-span-5 space-y-6">
+                <!-- File Upload Card -->
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <h2 class="text-base font-semibold text-white flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i> Ingestão de Faturas (PDF)
+                    </h2>
+
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-emerald-500/60 transition-colors rounded-xl p-8 text-center cursor-pointer bg-slate-950/40">
+                        <input type="file" id="pdf-input" accept="application/pdf" class="hidden">
+                        <div class="flex flex-col items-center justify-center space-y-3">
+                            <div class="h-12 w-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-300">
+                                <i class="fa-regular fa-file-pdf text-2xl text-rose-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-200">Arraste a fatura PDF ou <span class="text-emerald-400 hover:underline">clique para selecionar</span></p>
+                                <p class="text-xs text-slate-500 mt-1">Compatível com faturas digitais ou digitalizadas</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Sample Generators for live testing -->
+                    <div class="mt-6 pt-5 border-t border-slate-800/80">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-3">Faturas de Demonstração (Cenários Reais)</span>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <button onclick="uploadSyntheticSample('valid')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-between">
+                                <span><i class="fa-solid fa-circle-check text-emerald-400 mr-1.5"></i> Válida (STP)</span>
+                                <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+                            </button>
+                            <button onclick="uploadSyntheticSample('arithmetic_error')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-between">
+                                <span><i class="fa-solid fa-triangle-exclamation text-amber-400 mr-1.5"></i> Erro Soma</span>
+                                <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+                            </button>
+                            <button onclick="uploadSyntheticSample('dates_error')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-between">
+                                <span><i class="fa-solid fa-clock text-rose-400 mr-1.5"></i> Vencimento &lt; Emissão</span>
+                                <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+                            </button>
+                            <button onclick="uploadSyntheticSample('invalid_tax')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-between">
+                                <span><i class="fa-solid fa-id-card text-purple-400 mr-1.5"></i> NIF Inválido</span>
+                                <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Extraction Preview Card -->
+                <div id="extraction-result-card" class="hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-microchip text-cyan-400"></i> Dados Extraídos da Fatura
+                        </h3>
+                        <span id="badge-status" class="text-xs px-2.5 py-1 rounded-full font-medium">--</span>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-800/60">
+                            <span class="text-slate-400">Nº Fatura:</span>
+                            <span id="ext-invoice-num" class="font-mono text-slate-200 font-semibold">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-800/60">
+                            <span class="text-slate-400">Fornecedor / Emissor:</span>
+                            <span id="ext-issuer" class="text-slate-200 font-medium">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-800/60">
+                            <span class="text-slate-400">NIF / NIPC:</span>
+                            <span id="ext-nif" class="font-mono text-slate-200">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-800/60">
+                            <span class="text-slate-400">Datas (Emissão / Vencimento):</span>
+                            <span id="ext-dates" class="text-slate-200 font-mono">-- / --</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-800/60">
+                            <span class="text-slate-400">Total Geral:</span>
+                            <span id="ext-total" class="font-bold text-emerald-400 text-sm">--</span>
+                        </div>
+                        <div class="flex justify-between py-1">
+                            <span class="text-slate-400">Score de Confiança:</span>
+                            <span id="ext-confidence" class="font-bold text-slate-200 font-mono">--%</span>
+                        </div>
+                    </div>
+
+                    <!-- Rule Validation Checks Details -->
+                    <div class="pt-3 border-t border-slate-800">
+                        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Regras de Compliance Verificadas:</div>
+                        <div id="rule-checks-container" class="space-y-1.5">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Exception Queue & Human-in-the-Loop Audit -->
+            <div class="lg:col-span-7 space-y-6">
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-user-shield text-amber-400"></i> Fila de Auditoria HITL (Human-in-the-Loop)
+                            </h2>
+                            <p class="text-xs text-slate-400 mt-0.5">Faturas com inconformidades ou divergências aritméticas requerem aprovação humana</p>
+                        </div>
+                        <button onclick="refreshData()" class="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-rotate-right"></i> Atualizar
+                        </button>
+                    </div>
+
+                    <!-- Invoices Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-slate-950/60 text-slate-400 border-b border-slate-800 uppercase text-[10px] tracking-wider">
+                                <tr>
+                                    <th class="py-3 px-3">Fatura</th>
+                                    <th class="py-3 px-3">Emissor</th>
+                                    <th class="py-3 px-3">Total</th>
+                                    <th class="py-3 px-3">Status</th>
+                                    <th class="py-3 px-3">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoices-table-body" class="divide-y divide-slate-800/60">
+                                <tr>
+                                    <td colspan="5" class="py-6 text-center text-slate-500 italic">
+                                        Nenhuma fatura processada ainda. Faça o upload ou clique num dos cenários de teste à esquerda.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Architecture & Business Value Note -->
+                <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-5 text-xs text-slate-300 space-y-2">
+                    <div class="font-semibold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i> Por que esta arquitetura é ideal para o Backoffice Financeiro?
+                    </div>
+                    <p class="text-slate-400 leading-relaxed">
+                        Ao combinar a biblioteca <strong class="text-slate-200">pdfplumber</strong> (extração local de coordenadas e tabelas) com <strong class="text-slate-200">regras determinísticas de compliance</strong> (checksum de NIF/CNPJ e conferência matemática exata), a empresa garante <span class="text-emerald-300 font-medium">95%+ de processamento direto sem custo de API externa</span> para documentos canônicos, reservando a IA generativa ou auditoria humana estritamente para as exceções.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = "http://localhost:8001";
+
+        // Drag & Drop Handling
+        const dropZone = document.getElementById("drop-zone");
+        const pdfInput = document.getElementById("pdf-input");
+
+        dropZone.addEventListener("click", () => pdfInput.click());
+        dropZone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropZone.classList.add("border-emerald-500");
+        });
+        dropZone.addEventListener("dragleave", () => {
+            dropZone.classList.remove("border-emerald-500");
+        });
+        dropZone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dropZone.classList.remove("border-emerald-500");
+            if (e.dataTransfer.files.length > 0) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+        pdfInput.addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        async function processFile(file) {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/invoices/upload`, {
+                    method: "POST",
+                    body: formData
+                });
+                if (!res.ok) throw new Error("Erro no processamento da fatura");
+                const data = await res.json();
+                displayExtractionResult(data);
+                refreshData();
+            } catch (err) {
+                alert("Falha na chamada da API: " + err.message);
+            }
+        }
+
+        async function uploadSyntheticSample(sampleType) {
+            try {
+                // 1. Fetch sample binary from backend
+                const response = await fetch(`${API_URL}/api/v1/invoices/sample-download/${sampleType}`);
+                const blob = await response.blob();
+                const file = new File([blob], `sample_${sampleType}.pdf`, { type: "application/pdf" });
+                await processFile(file);
+            } catch (err) {
+                alert("Erro ao testar fatura de exemplo: " + err.message);
+            }
+        }
+
+        function displayExtractionResult(record) {
+            const card = document.getElementById("extraction-result-card");
+            card.classList.remove("hidden");
+
+            const inv = record.invoice_data;
+            const val = record.validation;
+
+            document.getElementById("ext-invoice-num").textContent = inv.invoice_number;
+            document.getElementById("ext-issuer").textContent = inv.issuer.name;
+            document.getElementById("ext-nif").textContent = inv.issuer.tax_id || "Não identificado";
+            document.getElementById("ext-dates").textContent = `${inv.issue_date || "--"} / ${inv.due_date || "--"}`;
+            document.getElementById("ext-total").textContent = `${inv.financials.total_amount.toFixed(2)} ${inv.financials.currency}`;
+            document.getElementById("ext-confidence").textContent = `${Math.round(val.confidence_score * 100)}%`;
+
+            const badge = document.getElementById("badge-status");
+            if (val.status === "approved") {
+                badge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                badge.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Aprovada (STP)';
+            } else if (val.status === "manually_approved") {
+                badge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30";
+                badge.innerHTML = '<i class="fa-solid fa-user-check mr-1"></i> Aprovada Auditor';
+            } else {
+                badge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Exceção / Revisão';
+            }
+
+            const ruleContainer = document.getElementById("rule-checks-container");
+            ruleContainer.innerHTML = val.rule_results.map(r => `
+                <div class="flex items-center justify-between p-1.5 rounded bg-slate-950/60 border border-slate-800">
+                    <span class="text-slate-300 font-mono text-[11px]">${r.rule_name}</span>
+                    <span class="text-[10px] font-semibold ${r.passed ? 'text-emerald-400' : (r.severity === 'WARNING' ? 'text-amber-400' : 'text-rose-400')}">
+                        ${r.passed ? '<i class="fa-solid fa-check"></i> PASS' : (r.severity === 'WARNING' ? '<i class="fa-solid fa-triangle-exclamation"></i> WARN' : '<i class="fa-solid fa-xmark"></i> FAIL')}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        async function approveInvoice(invoiceId) {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/invoices/audit-approve`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ invoice_id: invoiceId, auditor_notes: "Aprovação manual 1-click via PoC Dashboard" })
+                });
+                if (!res.ok) throw new Error("Erro ao aprovar fatura");
+                const updated = await res.json();
+                displayExtractionResult(updated);
+                refreshData();
+            } catch (err) {
+                alert("Erro ao aprovar: " + err.message);
+            }
+        }
+
+        async function refreshData() {
+            try {
+                // Fetch metrics
+                const metricsRes = await fetch(`${API_URL}/api/v1/invoices/metrics`);
+                const metrics = await metricsRes.json();
+                document.getElementById("metric-total").textContent = metrics.total_invoices_processed;
+                document.getElementById("metric-stp").textContent = `${metrics.stp_rate_percentage}%`;
+                document.getElementById("metric-exceptions").textContent = metrics.exceptions_pending_review;
+                document.getElementById("metric-volume").textContent = `€ ${metrics.total_financial_volume.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
+
+                // Fetch invoices list
+                const listRes = await fetch(`${API_URL}/api/v1/invoices/list`);
+                const invoices = await listRes.json();
+                const tbody = document.getElementById("invoices-table-body");
+
+                if (invoices.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500 italic">Nenhuma fatura processada ainda.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = invoices.map(item => {
+                    const inv = item.invoice_data;
+                    const val = item.validation;
+                    const isPending = val.status === "pending_review";
+
+                    return `
+                        <tr class="hover:bg-slate-900/50 transition">
+                            <td class="py-3 px-3 font-mono font-medium text-slate-200">${inv.invoice_number}</td>
+                            <td class="py-3 px-3">${inv.issuer.name}</td>
+                            <td class="py-3 px-3 font-mono text-emerald-400 font-semibold">${inv.financials.total_amount.toFixed(2)} ${inv.financials.currency}</td>
+                            <td class="py-3 px-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-medium ${
+                                    val.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                    val.status === 'manually_approved' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
+                                }">
+                                    ${val.status}
+                                </span>
+                            </td>
+                            <td class="py-3 px-3">
+                                ${isPending ? `
+                                    <button onclick="approveInvoice('${item.invoice_id}')" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] flex items-center gap-1 shadow-sm transition">
+                                        <i class="fa-solid fa-check"></i> Aprovar (HITL)
+                                    </button>
+                                ` : `
+                                    <span class="text-slate-500 text-[11px]"><i class="fa-solid fa-lock text-[9px] mr-1"></i> Concluído</span>
+                                `}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Erro ao carregar dados:", err);
+            }
+        }
+
+        // Initial fetch
+        refreshData();
+    </script>
+</body>
+</html>
